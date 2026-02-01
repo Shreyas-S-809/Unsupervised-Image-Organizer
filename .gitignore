@@ -11,8 +11,6 @@ venv/
 .ipynb_checkpoints/
 
 # Data files (generated)
-*.npy
-*.csv
 
 # OS
 .DS_Store
