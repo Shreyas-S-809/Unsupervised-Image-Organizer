@@ -40,8 +40,8 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv(os.path.join(BASE_DIR, "..", "viz_data.csv"))
-    images = np.load(os.path.join(BASE_DIR, "..", "image_data.npy"))
+    df = pd.read_csv("viz_data.csv")
+    images = np.load("image_data.npy")
     return df, images
 
 df, images = load_data()
