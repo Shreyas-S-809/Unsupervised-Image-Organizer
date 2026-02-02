@@ -1,8 +1,6 @@
 numpy==1.26.4
 pandas==2.2.2
 scikit-learn==1.4.2
-tensorflow-cpu==2.15.0
-matplotlib==3.8.4
-seaborn==0.13.2
 plotly==5.22.0
 streamlit==1.36.0
+Pillow
