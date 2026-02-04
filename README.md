@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Deep%20Learning-TensorFlow-orange"/>
   <img src="https://img.shields.io/badge/Clustering-Unsupervised-purple"/>
   <img src="https://img.shields.io/badge/Visualization-3D%20Interactive-blue"/>
-  <img src="https://img.shields.io/badge/Deployment-Streamlit-red"/>
+  <a href="https://unsupervised-image-organizer.streamlit.app/"><img src="https://img.shields.io/badge/Live%20Demo-Streamlit-red"/></a>
 </p>
 
 > **Goal:**  
@@ -208,6 +208,15 @@ This turns abstract embeddings into human-interpretable insight.
 
 All heavy ML computation is already done — the app loads instantly.
 
+---
+
+## 🚀 Deployment
+
+This application is deployed using **Streamlit Community Cloud**.
+
+**👉 [Live Demo](https://unsupervised-image-organizer.streamlit.app/)**
+
+All computationally heavy steps (CNN feature extraction, PCA, t-SNE, clustering) are executed offline in notebooks and saved as artifacts (`.npy`, `.csv`). The deployed Streamlit app only loads precomputed results, ensuring fast startup and smooth interaction.
 
 ---
 
