@@ -154,11 +154,10 @@ t-SNE distorts global distances and is not mathematically suitable for clusterin
 
 The Streamlit app provides:
 
-✨ 3D interactive visualization (Plotly)  
-🎨 Color-coded clusters  
-🔍 Hover-based inspection  
-🔎 Manual image lookup via ID  
-🔄 Toggle between clustering strategies
+3D interactive visualization (Plotly)  
+Color-coded clusters  
+Manual image lookup via ID  
+Toggle between clustering strategies
 
 This turns abstract embeddings into human-interpretable insight.
 
