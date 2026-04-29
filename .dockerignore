@@ -1,0 +1,6 @@
+venv/
+en/
+__pycache__/
+*.pyc
+notebooks/
+.git/
