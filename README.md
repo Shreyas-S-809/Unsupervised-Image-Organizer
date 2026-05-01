@@ -86,7 +86,7 @@ unsupervised-image-organizer/
 ```
 
 **Design choice:** Heavy computation happens once in notebooks. The Streamlit app only loads artifacts → no recomputation, fast UX.
-
+**This project is fully containerized; please refer to the Docker commands below.**
 ---
 
 ## 🧠 Key Design Decisions (Engineering Rationale)
@@ -207,6 +207,10 @@ This turns abstract embeddings into human-interpretable insight.
 
 All heavy ML computation is already done — the app loads instantly.
 
+5. **OR Run it using Docker **
+   ```bash
+   docker pull shreyas809/unsupervised-image-organiser:latest
+   ```
 ---
 
 ## 🚀 Deployment
