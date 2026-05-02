@@ -215,7 +215,7 @@ First, pull the latest image:
    ```bash
    docker pull shreyas809/unsupervised-image-organiser:latest
    ```
-Next, Start the container. Make sure to map the ports correctly to `8051`
+Next, Start the container. Make sure to map the ports correctly to `8501`
 
   ```bash
   docker run -p 8501:8501 shreyas809/unsupervised-image-organiser:latest
