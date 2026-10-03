@@ -8,8 +8,9 @@
 </head>
 <body>
 <header class="topbar"><div class="brand"><span class="brand-icon" aria-hidden="true">◈</span> Image Organizer <span class="slash">/</span><span class="workspace">Workspace</span></div><span class="project-tag">Unsupervised learning</span></header>
-<nav class="tabs" aria-label="Workspace"><span class="active" aria-current="page">Overview</span><span class="dataset-label">CIFAR-10 dataset <span class="status-dot"></span></span></nav>
+<nav class="tabs" aria-label="Workspace"><div class="tab-list" role="tablist" aria-label="Workspace views"><button id="overview-tab" class="active" role="tab" aria-selected="true" aria-controls="overview-panel">Overview</button><button id="playground-tab" role="tab" aria-selected="false" aria-controls="playground-panel" tabindex="-1">Playground</button></div><span class="dataset-label">CIFAR-10 dataset <span class="status-dot"></span></span></nav>
 <main>
+<div id="overview-panel" role="tabpanel" aria-labelledby="overview-tab">
 <section class="heading"><div><div class="eyebrow">IMAGE EXPLORER</div><h1>A little structure. A new perspective.</h1><p>Explore how your images connect. No labels required.</p></div><div class="live-pill"><span class="status-dot"></span> Precomputed embeddings</div></section>
 <section class="stats" aria-label="Dataset overview">
 <div><span class="stat-label">Total images <span>↗</span></span><strong id="image-count">—</strong><small>Images in this collection</small></div>
@@ -23,6 +24,24 @@
 </section>
 <section class="contact-section" aria-labelledby="contacts-title"><div class="panel-header"><div><h2 id="contacts-title">Inside the clusters</h2><p>Six images closest to each group’s center in PCA space. Select any image to inspect.</p></div></div><div id="contact-sheets" class="contact-grid"></div><p id="contact-note" class="contact-note" role="status"></p></section>
 <section class="pipeline" aria-label="Processing pipeline"><span class="eyebrow">BEHIND THE CLUSTERS</span><div><span>Raw images</span><b>→</b><span>CNN embeddings</span><b>→</b><span>PCA</span><b>→</b><span>t-SNE</span><b>→</b><span class="pipeline-end">Clustering <i>✓</i></span></div></section>
+</div>
+<section id="playground-panel" role="tabpanel" aria-labelledby="playground-tab" hidden>
+  <section class="heading"><div><div class="eyebrow">YOUR IMAGE. A NEW CONNECTION.</div><h1>Find where it fits.</h1><p>Drop in an image. Discover its closest cluster and visual neighbors.</p></div><div class="live-pill"><span class="status-dot"></span> MobileNetV2 · KMeans</div></section>
+  <div class="playground-layout">
+    <section class="upload-panel"><div class="panel-header"><div><h2>Your image</h2><p>A starting point for discovery.</p></div><button id="clear-upload" class="quiet-button" disabled>Clear</button></div>
+      <div class="upload-body"><label id="drop-zone" class="drop-zone" for="upload-file"><span class="upload-symbol" aria-hidden="true">↥</span><strong>Drop an image here</strong><span>or click to browse</span><small>JPEG, PNG or WebP · Up to 10 MB</small></label><input id="upload-file" class="file-input" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Choose an image">
+        <div id="upload-preview-wrap" hidden><div class="upload-preview"><img id="upload-preview" alt="Your selected image"></div><p id="upload-name" class="upload-name"></p></div>
+        <button id="analyze-upload" class="primary-button" disabled>Find my cluster <span aria-hidden="true">↗</span></button><p id="upload-status" class="upload-status" role="status" aria-live="polite">Choose an image to get started.</p>
+        <p class="discovery-note">Analyzed by this app’s server. Uploads are held in memory and are not added to the dataset.</p>
+      </div>
+    </section>
+    <section class="upload-results"><div class="panel-header"><div><h2>The closest connection</h2><p>Visual similarity, discovered without labels.</p></div><span class="project-tag">KMeans</span></div>
+      <div id="upload-empty" class="upload-empty"><span aria-hidden="true">◈</span><h2>A place for your next image.</h2><p>Your cluster and six closest matches will appear here.</p></div>
+      <div id="upload-result" class="upload-result" hidden><div class="prediction-summary"><div><div class="eyebrow">CLOSEST CLUSTER</div><h2 id="upload-cluster"></h2></div><span id="upload-cluster-size" class="project-tag"></span></div><p class="prediction-note">This is the nearest visual group, not an object label or a confidence score. Even an unrelated image has a closest cluster.</p><div class="divider"></div><h2>Similar images</h2><p class="discovery-note">Six closest matches across the collection · cosine similarity</p><div id="upload-matches" class="upload-matches"></div><div class="divider"></div><h2>Inside this cluster</h2><p class="discovery-note">Representative images from the assigned group.</p><div id="upload-representatives" class="upload-matches"></div></div>
+    </section>
+  </div>
+  <section class="pipeline"><span class="eyebrow">FROM UPLOAD TO CLUSTER</span><div><span>Your image</span><b>→</b><span>CNN features</span><b>→</b><span>PCA</span><b>→</b><span class="pipeline-end">Nearest cluster <i>✓</i></span></div></section>
+</section>
 <footer><span><span class="footer-mark">◈</span> Image Organizer</span><span>Patterns, discovered.</span></footer>
 </main>
 </body></html>

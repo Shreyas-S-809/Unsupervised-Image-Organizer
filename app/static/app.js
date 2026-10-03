@@ -142,3 +142,176 @@ async function start() {
   }
 }
 start();
+let uploadFile = null, uploadUrl = null, uploadRequest = null, uploadVersion = 0;
+
+/* ── Liquid glass indicator + morph transition helpers ── */
+function updateIndicator(tabButton) {
+  const list = tabButton.closest('.tab-list');
+  if (!list) return;
+  const listRect = list.getBoundingClientRect();
+  const btnRect = tabButton.getBoundingClientRect();
+  list.style.setProperty('--tab-indicator-left', `${btnRect.left - listRect.left}px`);
+  list.style.setProperty('--tab-indicator-width', `${btnRect.width}px`);
+}
+
+let _currentTab = 'overview';
+
+function selectTab(name, focus = false) {
+  if (name === _currentTab) return;
+  const outgoing = $(`${_currentTab}-panel`);
+  const incoming = $(`${name}-panel`);
+
+  /* Morph‑out the old panel */
+  outgoing.classList.add('tab-exit');
+  outgoing.addEventListener('animationend', function handler() {
+    outgoing.removeEventListener('animationend', handler);
+    outgoing.classList.remove('tab-exit');
+    outgoing.hidden = true;
+  }, { once: true });
+
+  /* Update tab states */
+  for (const view of ['overview', 'playground']) {
+    const active = view === name;
+    $(`${view}-tab`).classList.toggle('active', active);
+    $(`${view}-tab`).setAttribute('aria-selected', String(active));
+    $(`${view}-tab`).tabIndex = active ? 0 : -1;
+  }
+
+  /* Slide the liquid glass indicator */
+  updateIndicator($(`${name}-tab`));
+
+  /* Morph‑in the new panel */
+  incoming.hidden = false;
+  incoming.style.animation = 'none';
+  incoming.offsetHeight; /* force reflow */
+  incoming.style.animation = '';
+
+  _currentTab = name;
+  if (focus) $(`${name}-tab`).focus();
+  if (name === 'overview' && $('plot').data && window.Plotly) requestAnimationFrame(() => Plotly.Plots.resize($('plot')));
+}
+
+/* Bind tab buttons */
+for (const view of ['overview', 'playground']) {
+  $(`${view}-tab`).addEventListener('click', () => selectTab(view));
+  $(`${view}-tab`).addEventListener('keydown', event => {
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      selectTab(event.key === 'Home' ? 'overview' : event.key === 'End' ? 'playground' : view === 'overview' ? 'playground' : 'overview', true);
+    }
+  });
+}
+
+/* Set initial indicator position once layout is ready */
+requestAnimationFrame(() => updateIndicator($('overview-tab')));
+window.addEventListener('resize', () => updateIndicator($(`${_currentTab}-tab`)));
+
+function uploadMessage(text, error = false) {
+  $('upload-status').textContent = text;
+  $('upload-status').classList.toggle('error', error);
+}   
+
+function resetUpload() {
+  uploadVersion++;
+  uploadRequest?.abort();
+  uploadRequest = null;
+  uploadFile = null;
+  if (uploadUrl) URL.revokeObjectURL(uploadUrl);
+  uploadUrl = null;
+  $('upload-preview').removeAttribute('src');
+  $('upload-file').value = '';
+  $('upload-preview-wrap').hidden = true;
+  $('upload-result').hidden = true;
+  $('upload-empty').hidden = false;
+  $('upload-matches').replaceChildren();
+  $('upload-representatives').replaceChildren();
+  $('analyze-upload').disabled = true;
+  $('analyze-upload').textContent = 'Find my cluster ↗';
+  $('clear-upload').disabled = true;
+  uploadMessage('Choose an image to get started.');
+}
+
+async function chooseUpload(file) {
+  resetUpload();
+  if (!file) return;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    uploadMessage('Choose a JPEG, PNG or WebP image.', true); return;
+  }
+  if (!file.size || file.size > 10 * 1024 * 1024) {
+    uploadMessage('Choose an image smaller than 10 MB.', true); return;
+  }
+  const version = uploadVersion;
+  uploadUrl = URL.createObjectURL(file);
+  $('upload-preview').src = uploadUrl;
+  try {
+    await $('upload-preview').decode();
+    if (version !== uploadVersion) return;
+    if ($('upload-preview').naturalWidth * $('upload-preview').naturalHeight > 20_000_000) throw new Error('too large');
+    uploadFile = file;
+    $('upload-preview-wrap').hidden = false;
+    $('upload-name').textContent = `${file.name} · ${(file.size / 1024).toFixed(0)} KB`;
+    $('analyze-upload').disabled = false;
+    $('clear-upload').disabled = false;
+    uploadMessage('Ready when you are.');
+  } catch {
+    if (version !== uploadVersion) return;
+    resetUpload();
+    uploadMessage('Could not read this image. Choose a valid image with no more than 20 million pixels.', true);
+  }
+}
+
+function resultTile(id, score) {
+  const tile = document.createElement('div');
+  tile.className = 'image-tile';
+  const img = document.createElement('img');
+  img.src = `/api/images/${id}`;
+  img.alt = `Dataset image ${id}`;
+  const caption = document.createElement('span');
+  caption.textContent = `#${id}${score === undefined ? '' : ` · ${score.toFixed(2)}`}`;
+  tile.append(img, caption);
+  return tile;
+}
+
+$('upload-file').addEventListener('change', event => chooseUpload(event.target.files[0]));
+$('clear-upload').addEventListener('click', resetUpload);
+for (const name of ['dragenter', 'dragover']) $('drop-zone').addEventListener(name, event => {
+  event.preventDefault(); $('drop-zone').classList.add('dragging');
+});
+for (const name of ['dragleave', 'drop']) $('drop-zone').addEventListener(name, event => {
+  event.preventDefault(); $('drop-zone').classList.remove('dragging');
+});
+$('drop-zone').addEventListener('drop', event => chooseUpload(event.dataTransfer.files[0]));
+$('analyze-upload').addEventListener('click', async () => {
+  if (!uploadFile || uploadRequest) return;
+  const version = uploadVersion;
+  uploadRequest = new AbortController();
+  $('analyze-upload').disabled = true;
+  $('analyze-upload').textContent = 'Finding connections…';
+  $('upload-result').hidden = true;
+  $('upload-empty').hidden = false;
+  uploadMessage('Extracting visual features and finding your cluster. The first analysis may take a little longer.');
+  try {
+    const response = await fetch('/api/playground/predict', {
+      method: 'POST', headers: {'Content-Type': uploadFile.type}, body: uploadFile, signal: uploadRequest.signal
+    });
+    const result = await response.json();
+    if (version !== uploadVersion) return;
+    if (!response.ok) throw new Error(result.error || 'Analysis failed. Please try again.');
+    $('upload-cluster').textContent = `Cluster ${result.cluster}`;
+    $('upload-cluster').style.color = colorFor(result.cluster);
+    $('upload-cluster-size').textContent = `${result.clusterSize} dataset images`;
+    $('upload-matches').replaceChildren(...result.neighbors.map(match => resultTile(match.image_id, match.score)));
+    $('upload-representatives').replaceChildren(...result.representatives.map(id => resultTile(id)));
+    $('upload-empty').hidden = true;
+    $('upload-result').hidden = false;
+    uploadMessage(`Analysis complete · ${result.width} × ${result.height} pixels. Try another image whenever you like.`);
+  } catch (error) {
+    if (version === uploadVersion && error.name !== 'AbortError') uploadMessage(error.message || 'Could not reach the server. Please try again.', true);
+  } finally {
+    if (version === uploadVersion) {
+      uploadRequest = null;
+      $('analyze-upload').disabled = !uploadFile;
+      $('analyze-upload').textContent = 'Find my cluster ↗';
+    }
+  }
+});
