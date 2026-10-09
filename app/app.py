@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 import numpy as np
 from PIL import Image
 from plotly.offline import get_plotlyjs
+import playground
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / 'app' / 'static'
@@ -61,8 +62,8 @@ def plotly_bundle():
     return get_plotlyjs().encode('utf-8')
 
 class Handler(BaseHTTPRequestHandler):
-    def send_content(self, body, content_type):
-        self.send_response(200)
+    def send_content(self, body, content_type, status=200):
+        self.send_response(status)
         self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(body)))
         self.send_header('X-Content-Type-Options', 'nosniff')
@@ -71,7 +72,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = urlparse(self.path).path
-        if path == '/api/data':
+        if path == '/api/playground/status':
+            self.send_content(json.dumps(playground.status()).encode(), 'application/json')
+        elif path == '/api/data':
             rows, images = load_data()
             self.send_content(json.dumps({'points': rows, 'imageCount': len(images),
                                           **discovery_data()}).encode(), 'application/json')
@@ -95,6 +98,29 @@ class Handler(BaseHTTPRequestHandler):
             self.send_content((STATIC / name).read_bytes(), kind + '; charset=utf-8')
         else:
             self.send_error(404)
+
+    def do_POST(self):
+        if urlparse(self.path).path != '/api/playground/predict':
+            self.send_error(404)
+            return
+        try:
+            length = int(self.headers.get('Content-Length', '0'))
+            if not 0 < length <= playground.MAX_BYTES:
+                self.send_content(json.dumps({'error': 'Choose an image smaller than 10 MB.'}).encode(), 'application/json', 413)
+                return
+            body = self.rfile.read(length)
+            result = playground.predict(body)
+            group = next(g for g in discovery_data()['sheets']['kmeans_cluster']['groups']
+                         if g['cluster'] == result['cluster'])
+            result.update(clusterSize=group['count'], representatives=group['images'])
+            self.send_content(json.dumps(result).encode(), 'application/json')
+        except ValueError as exc:
+            self.send_content(json.dumps({'error': str(exc)}).encode(), 'application/json', 400)
+        except playground.PlaygroundUnavailable as exc:
+            self.send_content(json.dumps({'error': str(exc)}).encode(), 'application/json', 503)
+        except Exception:
+            self.log_error('Playground inference failed')
+            self.send_content(json.dumps({'error': 'The image could not be analyzed. Check model setup and try again.'}).encode(), 'application/json', 500)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
