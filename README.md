@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/Deep%20Learning-TensorFlow-orange"/>
   <img src="https://img.shields.io/badge/Clustering-Unsupervised-purple"/>
   <img src="https://img.shields.io/badge/Visualization-3D%20Interactive-blue"/>
-  <a href="https://unsupervised-image-organizer.streamlit.app/"><img src="https://img.shields.io/badge/Live%20Demo-Streamlit-red"/></a>
+  <img src="https://img.shields.io/badge/UI-HTML%20%2F%20CSS%20%2F%20JS-black"/>
 </p>
 
 > **Goal:**  
@@ -49,7 +49,7 @@ t-SNE (3D Visualization Space)
       ↓
 Unsupervised Clustering (K-Means / DBSCAN)
       ↓
-Interactive 3D Exploration (Streamlit + Plotly)
+Interactive 3D Exploration (HTML, CSS, JavaScript + Plotly)
 ```
 
 Each stage is intentionally isolated so the system is:
@@ -65,8 +65,8 @@ Each stage is intentionally isolated so the system is:
 unsupervised-image-organizer/
 │
 ├── app/
-│   ├── app.py                  # Streamlit application
-│   ├── image_data.npy          # Raw images (runtime artifact)
+│   ├── app.py                  # Python artifact server
+│   ├── static/                # HTML, CSS and JavaScript interface
 │   ├── pca_features.npy        # PCA-compressed embeddings
 │   ├── tsne_3d.npy             # 3D visualization coordinates
 │   └── image_features.npy      # CNN embeddings
@@ -79,13 +79,14 @@ unsupervised-image-organizer/
 ├── assets/
 │   └── pipeline_diagram.png
 │
+├── image_data.npy             # Raw images (runtime artifact)
 ├── viz_data.csv                # Final visualization + cluster metadata
 ├── requirements.txt
 ├── README.md
 └── LICENSE
 ```
 
-**Design choice:** Heavy computation happens once in notebooks. The Streamlit app only loads artifacts → no recomputation, fast UX.
+**Design choice:** Heavy computation happens once in notebooks. The Python server only loads artifacts → no recomputation, fast UX.
 
 ***This project is fully containerized, please refer to the Docker commands below.***
 ---
@@ -151,14 +152,16 @@ t-SNE distorts global distances and is not mathematically suitable for clusterin
 
 ## 🖥️ Interactive Application
 
-![alt text](image.png)
+![Image Organizer dashboard](assets/ui-preview.png)
 
-The Streamlit app provides:
+The responsive, Vercel-inspired dark interface provides:
 
-3D interactive visualization (Plotly)  
-Color-coded clusters  
-Manual image lookup via ID  
-Toggle between clustering strategies
+- 3D interactive visualization (Plotly)
+- Color-coded clusters
+- Manual image lookup via ID
+- Toggle between clustering strategies
+- Click a point to inspect its image, or use the image ID controls
+- Reset the 3D camera view
 
 This turns abstract embeddings into human-interpretable insight.
 
@@ -174,7 +177,8 @@ This turns abstract embeddings into human-interpretable insight.
 | Clustering | K-Means, DBSCAN |
 | Data Processing | NumPy, Pandas |
 | Visualization | Plotly (3D interactive) |
-| Deployment | Streamlit |
+| Interface | HTML, CSS, vanilla JavaScript |
+| Server | Python HTTP server (local / Docker) |
 
 ---
 
@@ -183,8 +187,8 @@ This turns abstract embeddings into human-interpretable insight.
 
 1. **Clone the repository**
    ```bash
-   git clone [LINK](https://github.com/Shreyas-S-809/Unsupervised-Image-Organizer)
-   cd Unsupervised-Image-Organiser
+   git clone https://github.com/Shreyas-S-809/Unsupervised-Image-Organizer
+   cd Unsupervised-Image-Organizer
    ```
 
 2. **Initialize and Activate Virtual Environment**
@@ -203,22 +207,24 @@ This turns abstract embeddings into human-interpretable insight.
 
 4. **Run the Application**
    ```bash
-   streamlit run app/app.py
+   python app/app.py
    ```
 
-All heavy ML computation is already done — the app loads instantly.
+Open http://localhost:8501. All heavy ML computation is already done; the interface uses the existing artifacts. Plotly is served locally, so no external CDN is needed.
+
+The HTML, CSS and JavaScript live in `app/static/`. Python serves the saved data and image previews; the notebooks and ML pipeline are unchanged.
 
 5. **OR Run it using Docker**
 
-First, pull the latest image:
+First, build the updated image:
 
    ```bash
-   docker pull shreyas809/unsupervised-image-organiser:latest
+   docker build -t image-organizer .
    ```
 Next, Start the container. Make sure to map the ports correctly to `8501`
 
   ```bash
-  docker run -p 8501:8501 shreyas809/unsupervised-image-organiser:latest
+  docker run --rm -p 8501:8501 image-organizer
   ```
 Once the container is running, open your web browser and navigate to:
   http://localhost:8501
@@ -228,11 +234,9 @@ Once the container is running, open your web browser and navigate to:
 
 ## 🚀 Deployment
 
-This application is deployed using **Streamlit Community Cloud**.
+The HTML/CSS/JavaScript version runs locally or in the Docker container above. The previous Streamlit Cloud deployment does not serve this new interface.
 
-**👉 [Live Demo](https://unsupervised-image-organizer.streamlit.app/)**
-
-All computationally heavy steps (CNN feature extraction, PCA, t-SNE, clustering) are executed offline in notebooks and saved as artifacts (`.npy`, `.csv`). The deployed Streamlit app only loads precomputed results, ensuring fast startup and smooth interaction.
+All computationally heavy steps (CNN feature extraction, PCA, t-SNE, clustering) remain offline in the notebooks. The server reads the existing `.npy` and `.csv` artifacts without recomputing or changing them.
 
 ---
 

@@ -13,8 +13,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the entire workspace into the container
 COPY . .
 
-# Expose Streamlit's default port
+# Expose the web interface port
 EXPOSE 8501
 
-# Command to run the Streamlit app when the container starts
-CMD ["streamlit", "run", "app/app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Serve the HTML, CSS and JavaScript interface
+CMD ["python", "app/app.py", "--host", "0.0.0.0", "--port", "8501"]

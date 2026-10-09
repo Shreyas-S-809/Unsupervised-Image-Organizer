@@ -1,114 +1,73 @@
-# Step E.1 --> Streamlit App Skeleton
-import os
-import streamlit as st
-import pandas as pd
+"""Serve the web interface and existing precomputed image artifacts."""
+import argparse
+import csv
+import io
+import json
+from functools import lru_cache
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import urlparse
+
 import numpy as np
-import plotly.express as px
+from PIL import Image
+from plotly.offline import get_plotlyjs
 
+ROOT = Path(__file__).resolve().parent.parent
+STATIC = ROOT / 'app' / 'static'
 
-st.set_page_config(layout="wide")
-st.markdown("""
-<style>
-/* Wrap the ACTUAL Plotly canvas */
-div[data-testid="stPlotlyChart"] > div > div {
-    border: 3px solid #2a2f3a;      /* thicker */
-    border-radius: 12px;
-    padding: 8px;
-    background-color: #0e1117;
-    box-sizing: border-box;
-}
-
-/* Prevent canvas from overflowing and hiding bottom border */
-div[data-testid="stPlotlyChart"] {
-    overflow: visible !important;
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-st.title(" 🧠 Unsupervised Image Ograniser")
-st.markdown(
-    """
-    **Pipeline:**
-    Raw Images --> CNN Embeddings --> PCA --> t-SNE --> Clustering
-    *(No labels were used at any stage)*
-    """
-)
-
-# Step E.2 --> Load the Artifacts
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-@st.cache_data
+@lru_cache(maxsize=1)
 def load_data():
-    df = pd.read_csv("viz_data.csv")
-    images = np.load("image_data.npy")
-    return df, images
+    with (ROOT / 'viz_data.csv').open(newline='', encoding='utf-8') as source:
+        rows = [dict(x=float(r['x']), y=float(r['y']), z=float(r['z']),
+                     kmeans_cluster=int(r['kmeans_cluster']),
+                     dbscan_cluster=int(r['dbscan_cluster']), image_id=int(r['image_id']))
+                for r in csv.DictReader(source)]
+    return rows, np.load(ROOT / 'image_data.npy', mmap_mode='r', allow_pickle=False)
 
-df, images = load_data()
-df = df.reset_index(drop=True)
+@lru_cache(maxsize=1)
+def plotly_bundle():
+    return get_plotlyjs().encode('utf-8')
 
-# Step E.3 --> Layout
-col1, col2 = st.columns([3, 1])
+class Handler(BaseHTTPRequestHandler):
+    def send_content(self, body, content_type):
+        self.send_response(200)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.end_headers()
+        self.wfile.write(body)
 
-# ---- Read clustering choice from session state (or default) ----
-cluster_type = st.session_state.get("cluster_type", "KMeans")
-color_col = "kmeans_cluster" if cluster_type == "KMeans" else "dbscan_cluster"
+    def do_GET(self):
+        path = urlparse(self.path).path
+        if path == '/api/data':
+            rows, images = load_data()
+            self.send_content(json.dumps({'points': rows, 'imageCount': len(images)}).encode(), 'application/json')
+        elif path.startswith('/api/images/'):
+            try:
+                image_id = int(path.rsplit('/', 1)[-1])
+                _, images = load_data()
+                if not 0 <= image_id < len(images):
+                    raise ValueError('Image ID out of range')
+            except ValueError:
+                self.send_error(404, 'Image not found')
+                return
+            output = io.BytesIO()
+            Image.fromarray(images[image_id].astype('uint8')).save(output, format='PNG')
+            self.send_content(output.getvalue(), 'image/png')
+        elif path == '/plotly.min.js':
+            self.send_content(plotly_bundle(), 'text/javascript; charset=utf-8')
+        elif path in {'/', '/index.html', '/styles.css', '/app.js'}:
+            name = 'index.html' if path == '/' else path[1:]
+            kind = {'html': 'text/html', 'css': 'text/css', 'js': 'text/javascript'}[name.rsplit('.', 1)[-1]]
+            self.send_content((STATIC / name).read_bytes(), kind + '; charset=utf-8')
+        else:
+            self.send_error(404)
 
-# Step E.4 --> 3D Plot
-with col1:
-    fig = px.scatter_3d(
-        df,
-        x="x",
-        y="y",
-        z="z",
-        color=df[color_col].astype(str),
-        hover_data=["image_id"],
-        title=f"3D Image Clusters ({cluster_type})"
-    )
-
-    fig.update_traces(marker=dict(size=4))
-    fig.update_layout(
-        height=650,
-        margin=dict(l=0, r=0, b=0, t=40),
-        paper_bgcolor="#0e1117",
-        plot_bgcolor="#0e1117",
-        font=dict(color="white")
-    )
-
-    st.plotly_chart(fig, width="stretch")
-    
-
-
-# Step E.5 --> Image Inspector + Clustering Control
-with col2:
-    st.subheader(" 🔍 Image Inspector")
-
-    img_id = st.number_input(
-        "Enter the Image ID : Range (0 - {})".format(len(images) - 1),
-        min_value=0,
-        max_value=len(images) - 1,
-        value=0,
-        step=1
-    )
-
-    img = images[img_id].astype("uint8")
-    st.image(
-        img,
-        caption=f"{cluster_type} Cluster : {df.loc[img_id, color_col]}",
-        width=220
-    )
-
-    st.info(
-        "Images within the same cluster share semantic features "
-        "(shape, texture, object type) — without labels."
-    )
-
-    st.markdown("### 🧬 Clustering Method")
-
-    # 🔥 This radio controls the plot via session_state
-    st.radio(
-        "",
-        ["KMeans", "DBSCAN"],
-        horizontal=True,
-        key="cluster_type"
-    )
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--host', default='127.0.0.1')
+    parser.add_argument('--port', type=int, default=8501)
+    args = parser.parse_args()
+    load_data()
+    print(f'Image Organizer is available at http://{args.host}:{args.port}', flush=True)
+    ThreadingHTTPServer((args.host, args.port), Handler).serve_forever()
