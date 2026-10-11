@@ -167,6 +167,21 @@ The responsive, Vercel-inspired dark interface provides:
 
 Similarity is not classification confidence. DBSCAN noise is excluded from contact sheets; the current saved DBSCAN results contain only noise. Discovery results are computed once per server process and cached. No model retraining or extra dependencies are needed.
 
+### Playground tab
+
+Upload a JPEG, PNG or WebP (up to 10 MB / 20 megapixels), then choose **Find my cluster**. The result shows the nearest KMeans cluster, six cosine-similar dataset images, and representatives from that cluster. Uploads and results remain in Playground; Overview keeps its existing controls and dataset.
+
+The server decodes uploads in memory, applies EXIF orientation, composites transparency on white, and uses RGB pixels, area resampling to the dataset’s 32 × 32 resolution, TensorFlow bilinear enlargement to 224 × 224, MobileNetV2 `preprocess_input`, and average-pooled ImageNet features, matching the extraction notebook. Uploaded files are not saved or added to the collection. The nearest cluster is a visual grouping, not an object label or calibrated confidence. DBSCAN and t-SNE are not used for upload prediction.
+
+The original fitted PCA was not saved. Setup rebuilds its 50-dimensional randomized PCA from the existing CNN features and derives centroids using the saved KMeans memberships. It refuses to enable uploads unless all existing nearest-center assignments are preserved and the aligned projection differs by no more than 2%. It also checks MobileNetV2 embeddings against three saved examples. `app/models/validation.json` records the checks. Original artifacts and cluster IDs are never overwritten. Rerun setup and restart after changing the dataset. Generated models are ignored by Git; each new checkout needs setup.
+
+For Docker, prepare locally before building (the generated models are copied), or run `docker run --rm -v "${PWD}/app/models:/app/app/models" image-organizer python app/prepare_playground.py` and mount that same directory when starting the container.
+
+Run upload validation and, after setup, real-model checks:
+```bash
+python -m unittest discover -s tests -v
+```
+
 This turns abstract embeddings into human-interpretable insight.
 
 ---
@@ -209,7 +224,13 @@ This turns abstract embeddings into human-interpretable insight.
    pip install -r requirements.txt
    ```
 
-4. **Run the Application**
+4. **Prepare Playground once** (Python 3.10–3.12)
+   ```bash
+   python app/prepare_playground.py
+   ```
+   This downloads official ImageNet MobileNetV2 weights and writes upload-only models to `app/models/`. It requires internet access once; uploads run locally afterward.
+
+5. **Run the Application**
    ```bash
    python app/app.py
    ```
@@ -218,7 +239,7 @@ Open http://localhost:8501. All heavy ML computation is already done; the interf
 
 The HTML, CSS and JavaScript live in `app/static/`. Python serves the saved data and image previews; the notebooks and ML pipeline are unchanged.
 
-5. **OR Run it using Docker**
+6. **OR Run it using Docker**
 
 First, build the updated image:
 

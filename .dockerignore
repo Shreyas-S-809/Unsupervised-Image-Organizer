@@ -4,3 +4,7 @@ __pycache__/
 *.pyc
 notebooks/
 .git/
+
+.runtime/
+app/models/keras-cache/
+.pip-tools/

@@ -18,3 +18,9 @@ Thumbs.db
 
 # Local verification dependencies
 .runtime/
+
+# Generated Playground models and pretrained weights
+app/models/
+
+# Local installer used for verification
+.pip-tools/
