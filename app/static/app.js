@@ -1,6 +1,7 @@
 "use strict";
 const $ = id => document.getElementById(id);
 const colors = ["#8b9eff", "#54c5bb", "#e3b46b", "#c393e6", "#df8294", "#79b7e8", "#a6c878", "#da9d73", "#80ccc7", "#b6a8ec"];
+let neighbors = [], sheets = {};
 let points = [], imageCount = 0, method = "kmeans_cluster", selected = 0;
 const camera = {eye: {x: 1.5, y: 1.5, z: 1.05}};
 const methodName = () => method === "kmeans_cluster" ? "KMeans" : "DBSCAN";
@@ -13,6 +14,7 @@ function inspect(value) {
     return;
   }
   selected = id;
+  renderNeighbors(id);
   $("input-error").textContent = "";
   $("image-id").value = id;
   $("previous").disabled = id === 0;
@@ -47,12 +49,66 @@ function draw() {
     {responsive: true, displayModeBar: false, scrollZoom: true, displaylogo: false});
 }
 
+function imageTile(id, caption) {
+  const button = document.createElement("button");
+  button.className = "image-tile";
+  button.type = "button";
+  button.setAttribute("aria-label", `Inspect image ${id}${caption ? `, cosine similarity ${caption}` : ""}`);
+  const image = document.createElement("img");
+  image.src = `/api/images/${id}`;
+  image.alt = `Image ${id}`;
+  image.loading = "lazy";
+  const label = document.createElement("span");
+  label.textContent = `#${id}${caption ? ` · ${caption}` : ""}`;
+  button.append(image, label);
+  button.addEventListener("click", () => {
+    inspect(id);
+    $("image-id").focus({preventScroll: true});
+    $("image-id").scrollIntoView({block: "center", behavior: "auto"});
+  });
+  return button;
+}
+
+function renderNeighbors(id) {
+  const matches = neighbors[id] || [];
+  $("similar-images").replaceChildren(...matches.map(match => imageTile(match.image_id, match.score.toFixed(2))));
+  if (!matches.length) $("similar-images").textContent = "No comparable embeddings available.";
+}
+
+function renderSheets() {
+  const sheet = sheets[method];
+  $("contact-sheets").replaceChildren();
+  if (!sheet) return;
+  for (const group of sheet.groups) {
+    const card = document.createElement("article");
+    card.className = "contact-card";
+    const title = document.createElement("h3");
+    title.textContent = `Cluster ${group.cluster}`;
+    title.style.color = colorFor(group.cluster);
+    const count = document.createElement("span");
+    count.textContent = `${group.count} images`;
+    const header = document.createElement("div");
+    header.className = "contact-header";
+    header.append(title, count);
+    const grid = document.createElement("div");
+    grid.className = "thumbnail-grid";
+    grid.append(...group.images.map(id => imageTile(id)));
+    card.append(header, grid);
+    $("contact-sheets").append(card);
+  }
+  $("contact-note").textContent = sheet.groups.length
+    ? `${methodName()} · Representatives are nearest the cluster mean, not predicted labels.${sheet.noiseCount ? ` ${sheet.noiseCount} noise images are excluded.` : ""}`
+    : `No clusters to summarize. ${methodName()} marks ${sheet.noiseCount} images as noise in the saved results.`;
+}
+
 async function start() {
   try {
     const response = await fetch("/api/data");
     if (!response.ok) throw new Error("Could not load data");
     const data = await response.json();
     points = data.points; imageCount = data.imageCount;
+    neighbors = data.neighbors; sheets = data.sheets;
+    renderSheets();
     if (!points.length || !imageCount) throw new Error("Empty collection");
     $("image-count").textContent = imageCount.toLocaleString();
     $("point-count").textContent = `${points.length.toLocaleString()} points`;
@@ -69,6 +125,7 @@ async function start() {
         document.querySelectorAll("[data-method]").forEach(b => b.setAttribute("aria-pressed", String(b === button)));
         $("method-note").textContent = method === "kmeans_cluster" ? "Groups images into a fixed number of clusters based on similar features." : "Finds dense groups of similar images. Unassigned images are marked as noise.";
         inspect(selected);
+        renderSheets();
         try { await draw(); } catch { $("plot-status").textContent = "Unable to render the plot. Please reload to try again."; $("plot-status").hidden = false; }
       });
     });

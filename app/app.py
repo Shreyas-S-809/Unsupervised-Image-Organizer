@@ -25,6 +25,38 @@ def load_data():
     return rows, np.load(ROOT / 'image_data.npy', mmap_mode='r', allow_pickle=False)
 
 @lru_cache(maxsize=1)
+def discovery_data():
+    """Rank neighbors in CNN space and representatives in clustering (PCA) space."""
+    rows, images = load_data()
+    features = np.load(ROOT / 'app' / 'image_features.npy', allow_pickle=False)
+    pca = np.load(ROOT / 'app' / 'pca_features.npy', allow_pickle=False)
+    if len(features) != len(images) or len(pca) != len(images):
+        raise ValueError('Feature artifacts must align with image indices')
+    norms = np.linalg.norm(features, axis=1, keepdims=True)
+    normalized = np.divide(features, norms, out=np.zeros_like(features), where=norms > 0)
+    scores = np.clip(normalized @ normalized.T, -1, 1)
+    np.fill_diagonal(scores, -np.inf)
+    # Zero-length embeddings have no defined cosine similarity.
+    valid = norms[:, 0] > 0
+    scores[:, ~valid] = -np.inf
+    neighbors = []
+    for image_id, values in enumerate(scores):
+        ranked = np.argsort(-values, kind='stable')[:6] if valid[image_id] else []
+        neighbors.append([{'image_id': int(i), 'score': float(values[i])}
+                          for i in ranked if np.isfinite(values[i])])
+    sheets = {}
+    for method in ('kmeans_cluster', 'dbscan_cluster'):
+        groups = []
+        for cluster in sorted({r[method] for r in rows} - {-1}):
+            ids = np.array([r['image_id'] for r in rows if r[method] == cluster])
+            distances = np.linalg.norm(pca[ids] - pca[ids].mean(axis=0), axis=1)
+            representatives = ids[np.argsort(distances, kind='stable')[:6]]
+            groups.append({'cluster': cluster, 'count': len(ids),
+                           'images': representatives.tolist()})
+        sheets[method] = {'groups': groups, 'noiseCount': sum(r[method] == -1 for r in rows)}
+    return {'neighbors': neighbors, 'sheets': sheets}
+
+@lru_cache(maxsize=1)
 def plotly_bundle():
     return get_plotlyjs().encode('utf-8')
 
@@ -41,7 +73,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == '/api/data':
             rows, images = load_data()
-            self.send_content(json.dumps({'points': rows, 'imageCount': len(images)}).encode(), 'application/json')
+            self.send_content(json.dumps({'points': rows, 'imageCount': len(images),
+                                          **discovery_data()}).encode(), 'application/json')
         elif path.startswith('/api/images/'):
             try:
                 image_id = int(path.rsplit('/', 1)[-1])

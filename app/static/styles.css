@@ -566,3 +566,27 @@ footer {
     transition:background .15s,color .15s;
   }
 }
+
+/* Embedding discovery */
+.explorer { align-items: stretch; }
+.plot-panel { display: flex; flex-direction: column; }
+.plot-panel .panel-header, .plot-footer { flex-shrink: 0; }
+.plot-area { flex: 1; min-height: 463px; }
+#plot { position: absolute; inset: 0; }
+@media (max-width: 760px) { .plot-area { min-height: 390px; } }
+.discovery-note { font-size: 10px; margin: 8px 0; }
+.thumbnail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.image-tile { min-width: 0; padding: 5px; background: #141414; border: 1px solid #303030; border-radius: 5px; color: #aaa; }
+.image-tile:hover { background: #252525; border-color: #777; }
+.image-tile img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; image-rendering: pixelated; border-radius: 2px; }
+.image-tile span { display: block; font: 9px monospace; margin-top: 6px; white-space: nowrap; }
+.contact-section { margin-top: 26px; border: 1px solid #292929; border-radius: 9px; background: #0b0b0b; overflow: hidden; }
+.contact-section .panel-header { height: auto; min-height: 85px; }
+.contact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; padding: 20px; }
+.contact-grid:empty { display: none; }
+.contact-card { padding: 14px; border: 1px solid #292929; border-radius: 6px; }
+.contact-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+.contact-header h3 { font-size: 12px; margin: 0; font-weight: 500; }
+.contact-header span { font-size: 10px; color: #999; }
+.contact-note { font-size: 11px; padding: 0 20px 20px; }
+.contact-grid:empty + .contact-note { padding-top: 20px; }

@@ -162,6 +162,10 @@ The responsive, Vercel-inspired dark interface provides:
 - Toggle between clustering strategies
 - Click a point to inspect its image, or use the image ID controls
 - Reset the 3D camera view
+- Find six similar images using cosine similarity of the saved CNN embeddings (excluding the selected image)
+- Browse six representatives nearest each cluster mean in PCA space; click any thumbnail to inspect it
+
+Similarity is not classification confidence. DBSCAN noise is excluded from contact sheets; the current saved DBSCAN results contain only noise. Discovery results are computed once per server process and cached. No model retraining or extra dependencies are needed.
 
 This turns abstract embeddings into human-interpretable insight.
 
